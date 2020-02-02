@@ -1,3 +1,5 @@
+import { connect } from "mongoose";
+
 const Validator = require("validator");
 const isEmpty = require("is-empty");
 
@@ -44,5 +46,10 @@ module.exports = function validateRegisterInput(data) {
         isValid: isEmpty(errors)
     };
 };
+
+export default connect(
+    mapStateToProps,
+    { registerUser }
+)(withRouter(Register));
 
 
