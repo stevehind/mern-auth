@@ -30,6 +30,7 @@
     "mongoose": "^5.8.11",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",
+    "twilio": "^3.39.5",
     "validator": "^12.2.0"
   },
   "devDependencies": {
