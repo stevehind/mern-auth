@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const MessagingResponse = require("twilio").twiml.MessagingResponse;
+const listAllMessages = require("../../functions/messages");
+const sendMessage = require("../../functions/send");
 
 var keys = require("../../config/keys");
 var client = require("twilio")(keys.twilioAccountSid, keys.twilioAuthToken);
@@ -18,13 +20,15 @@ router.post("/create-number-account", (req, res) => {
     // Provision a Twilio sub-account for the user
     client.api.accounts.create({
         friendlyName: user_email
-    }).then(function (account) {
+    })
+    .then(account => {
         return res.status(200).json({ 
             account: account.sid,
             token: account.authToken,
             email: account.friendlyName
          })
-    });
+    })
+    .catch( account => { return res.status(400).json(account)});
 });
 
 // @route POST api/numbers/buy-number
@@ -56,25 +60,21 @@ router.post("/buy-number", (req, res) => {
 
     // Return the first number in the list of available numbers for that area code
     return client.availablePhoneNumbers('US').local.list(search_payload)
-    .then(function(list) {
+    .then(list => {
         // Purchase the first available number on the list, and return the number.
         client.incomingPhoneNumbers.create({
             phoneNumber: list[0].phoneNumber,
             smsUrl: "https://fbe30584.ngrok.io/api/numbers/receive"
         })
-        .then(function(incoming_phone_number) {
+        .then(incoming_phone_number => {
             client.incomingPhoneNumbers(incoming_phone_number.sid)
             .update({ 
                 accountSid: user_sid,
                 friendlyName: user_email 
             })
-            .then(function(updated_phone_number) {
-                return res.status(200).json(updated_phone_number);
-            }).catch(function(updated_phone_number){
-                return res.status(400).json(updated_phone_number);
-            });
-            // TODO
-            // write the phone number + its id to the database under the user's id.
+            .then( updated_phone_number => { return res.status(200).json(updated_phone_number) })
+            // TODO: write the phone number and its id to the database under the user's id.
+            .catch( updated_phone_number => { return res.status(400).json(updated_phone_number) });
         });
     });
 
@@ -87,24 +87,9 @@ router.post("/send", (req, res) => {
 
     const body = req.body;
 
-    const subSid = body.sid;
-    const to_number = body.to_number;
-    const from_number = body.from_number;
-    const subtoken = body.token;
-    const message = body.message;
-
-    const subClient = require("twilio")(subSid, subtoken);
-
-    return subClient.messages.create({
-        from: from_number,
-        to: to_number,
-        body: message
-    }).then(function (message) {
-        return res.status(200).json(message)
-    }).catch(function (message) {
-        return res.status(400).json(message)
-    });
-
+    return sendMessage(body)
+    .then(m => { return res.status(200).json(m) })
+    .catch(m => { return res.status(400).json(m) });
 });
 
 // @route POST api/numbers/receive
@@ -132,29 +117,10 @@ router.post("/receive", (req, res) => {
 router.post("/list-messages", (req, res) => {
 
     const body = req.body;
-    const subSid = body.sid;
-    const subtoken = body.token;
 
-    const subClient = require("twilio")(subSid, subtoken);
-    
-    var message_list = [];
-    console.log(message_list);
-
-    return subClient.messages.list()
-        .then(function (messages) {
-            messages.forEach(function (m) {
-                var message_data = {
-                    timestamp: m.dateCreated,
-                    direction: m.direction,
-                    to: m.to,
-                    from: m.from,
-                    body: m.body
-                }
-                message_list.push(message_data);
-            });
-            console.log(message_list);
-            return res.status(200).json(message_list);
-        });
+    return listAllMessages(body)
+    .then(m => { return res.status(200).json(m) })
+    .catch(m => { return res.status(400).json(m) });
 });
 
 module.exports = router;
